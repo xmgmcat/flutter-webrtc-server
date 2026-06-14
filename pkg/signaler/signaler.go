@@ -54,6 +54,7 @@ const (
 	Candidate Method = "candidate"
 	Leave     Method = "leave"
 	Keepalive Method = "keepalive"
+	Message      Method = "message"  //独立文本消息数据交互
 )
 
 type Request struct {
@@ -131,8 +132,6 @@ func (s *Signaler) NotifyPeersUpdate(conn *websocket.WebSocketConn, peers map[st
 	}
 }
 
-// HandleTurnServerCredentials .
-// https://tools.ietf.org/html/draft-uberti-behave-turn-rest-00
 func (s *Signaler) HandleTurnServerCredentials(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 	writer.Header().Set("Access-Control-Allow-Origin", "*")
@@ -152,27 +151,6 @@ func (s *Signaler) HandleTurnServerCredentials(writer http.ResponseWriter, reque
 	hmac := hmac.New(sha1.New, []byte(sharedKey))
 	hmac.Write([]byte(turnUsername))
 	turnPassword := base64.RawStdEncoding.EncodeToString(hmac.Sum(nil))
-	/*
-		{
-		     "username" : "12334939:mbzrxpgjys",
-		     "password" : "adfsaflsjfldssia",
-		     "ttl" : 86400,
-		     "uris" : [
-		       "turn:1.2.3.4:9991?transport=udp",
-		       "turn:1.2.3.4:9992?transport=tcp",
-		       "turns:1.2.3.4:443?transport=tcp"
-			 ]
-		}
-		For client pc.
-		var iceServer = {
-			"username": response.username,
-			"credential": response.password,
-			"uris": response.uris
-		};
-		var config = {"iceServers": [iceServer]};
-		var pc = new RTCPeerConnection(config);
-
-	*/
 	ttl := 86400
 	host := fmt.Sprintf("%s:%d", s.turn.Config.PublicIP, s.turn.Config.Port)
 	credential := TurnCredentials{
@@ -276,7 +254,29 @@ func (s *Signaler) HandleNewWebSocket(conn *websocket.WebSocketConn, request *ht
 			}
 			// 转发消息给目标peer
 			s.Send(targetPeer.conn, request)
-
+			break
+		case Message:
+			var msgData struct {
+				ToID    string `json:"toid"`
+				ontent interface{} `json:"content"` //明文，json...任意格式
+			}
+			if err := json.Unmarshal(body, &msgData); err != nil {
+				logger.Errorf("Unmarshal message data error: %v", err)
+				return
+			}
+			targetPeer, ok := s.peers[msgData.ToID]
+			if !ok {
+				s.Send(conn, Request{
+					Type: "error",
+					Data: Error{
+						Request: string(request.Type),
+						Reason:  "Target peer not found",
+					},
+				})
+				return
+			}
+			s.Send(targetPeer.conn, request)
+			break
 		case Leave:
 		case Offer:
 			fallthrough
