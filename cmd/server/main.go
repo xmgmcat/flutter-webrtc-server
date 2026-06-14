@@ -52,15 +52,12 @@ func main() {
 		port = 6656 // 如果配置文件中不存在指定端口，则使用默认端口。
 	}
 
-	htmlRoot := cfg.Section("general").Key("html_root").String()
-
 	// 更新server配置初始化 WebSocket 服务器。
 	config := websocket.DefaultConfig()
 	config.Host = bindAddress
 	config.Port = port
 	config.CertFile = sslCert
 	config.KeyFile = sslKey
-	config.HTMLRoot = htmlRoot
 
 	// 将 WebSocket 服务器绑定到指定的地址和端口。
 	wsServer.Bind(config)
