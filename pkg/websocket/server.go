@@ -1,11 +1,10 @@
 package websocket
 
 import (
-	"net/http"
-	"strconv"
-
 	"github.com/flutter-webrtc/flutter-webrtc-server/pkg/logger"
 	"github.com/gorilla/websocket"
+	"net/http"
+	"strconv"
 )
 
 type WebSocketServerConfig struct {
@@ -13,16 +12,12 @@ type WebSocketServerConfig struct {
 	Port           int
 	CertFile       string
 	KeyFile        string
-	HTMLRoot       string
 	WebSocketPath  string
 	TurnServerPath string
 }
 
 func DefaultConfig() WebSocketServerConfig {
 	return WebSocketServerConfig{
-		Host:           "0.0.0.0",
-		Port:           6656,
-		HTMLRoot:       "web",
 		WebSocketPath:  "/ws",
 		TurnServerPath: "/api/turn",
 	}
@@ -66,13 +61,10 @@ func (server *WebSocketServer) handleTurnServerRequest(writer http.ResponseWrite
 	server.handleTurnServer(writer, request)
 }
 
-// Bind .
+
 func (server *WebSocketServer) Bind(cfg WebSocketServerConfig) {
-	// Websocket handle func
 	http.HandleFunc(cfg.WebSocketPath, server.handleWebSocketRequest)
 	http.HandleFunc(cfg.TurnServerPath, server.handleTurnServerRequest)
-	http.Handle("/", http.FileServer(http.Dir(cfg.HTMLRoot)))
-	logger.Infof("WebRTC Server listening on: %s:%d", cfg.Host, cfg.Port)
-	// http.ListenAndServe(cfg.Host+":"+strconv.Itoa(cfg.Port), nil)
+	logger.Infof("WebRTC Signaling Server listening on: %s:%d", cfg.Host, cfg.Port)
 	panic(http.ListenAndServeTLS(cfg.Host+":"+strconv.Itoa(cfg.Port), cfg.CertFile, cfg.KeyFile, nil))
 }
